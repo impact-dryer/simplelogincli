@@ -75,17 +75,17 @@ func usage() {
 	_, _ = fmt.Println("Run 'simplelogin <command> -h' for command-specific flags.")
 }
 
-func runSetKey(args []string, cfg config.Config) int {
+func runSetKey(args []string, cfg config.SecureConfig) int {
 	fs := flag.NewFlagSet("set-key", flag.ExitOnError)
 	key := fs.String("api-key", "", "API key to store (or use SIMPLELOGIN_API_KEY env)")
-	baseURL := fs.String("base-url", cfg.BaseURL, "SimpleLogin base URL")
+	baseURL := fs.String("base-url", cfg.BaseConfig.BaseURL, "SimpleLogin base URL")
 	_ = fs.Parse(args)
 	if *key == "" {
 		_, _ = fmt.Fprintln(os.Stderr, "--api-key is required (or set SIMPLELOGIN_API_KEY)")
 		return 2
 	}
 	cfg.APIKey = *key
-	cfg.BaseURL = *baseURL
+	cfg.BaseConfig.BaseURL = *baseURL
 	if err := config.Save(cfg); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "Failed to save config:", err)
 		return 1
@@ -94,9 +94,9 @@ func runSetKey(args []string, cfg config.Config) int {
 	return 0
 }
 
-func runWhoAmI(args []string, cfg config.Config) int {
+func runWhoAmI(args []string, cfg config.SecureConfig) int {
 	fs := flag.NewFlagSet("whoami", flag.ExitOnError)
-	baseURL := fs.String("base-url", cfg.BaseURL, "SimpleLogin base URL")
+	baseURL := fs.String("base-url", cfg.BaseConfig.BaseURL, "SimpleLogin base URL")
 	apiKey := fs.String("api-key", cfg.APIKey, "API key (overrides stored key)")
 	_ = fs.Parse(args)
 	if *apiKey == "" {
@@ -115,9 +115,9 @@ func runWhoAmI(args []string, cfg config.Config) int {
 	return 0
 }
 
-func runOptions(args []string, cfg config.Config) int {
+func runOptions(args []string, cfg config.SecureConfig) int {
 	fs := flag.NewFlagSet("options", flag.ExitOnError)
-	baseURL := fs.String("base-url", cfg.BaseURL, "SimpleLogin base URL")
+	baseURL := fs.String("base-url", cfg.BaseConfig.BaseURL, "SimpleLogin base URL")
 	apiKey := fs.String("api-key", cfg.APIKey, "API key (overrides stored key)")
 	hostname := fs.String("hostname", "", "Website hostname to tailor suggestions")
 	_ = fs.Parse(args)
@@ -151,9 +151,9 @@ func runOptions(args []string, cfg config.Config) int {
 	return 0
 }
 
-func runRandom(args []string, cfg config.Config) int {
+func runRandom(args []string, cfg config.SecureConfig) int {
 	fs := flag.NewFlagSet("random", flag.ExitOnError)
-	baseURL := fs.String("base-url", cfg.BaseURL, "SimpleLogin base URL")
+	baseURL := fs.String("base-url", cfg.BaseConfig.BaseURL, "SimpleLogin base URL")
 	apiKey := fs.String("api-key", cfg.APIKey, "API key (overrides stored key)")
 	hostname := fs.String("hostname", "", "Website hostname to attach to the alias creation request")
 	mode := fs.String("mode", "", "Random alias mode: uuid or word (optional; defaults to user setting)")
@@ -180,9 +180,9 @@ func runRandom(args []string, cfg config.Config) int {
 	return 0
 }
 
-func runDeleteAlias(args []string, cfg config.Config) int {
+func runDeleteAlias(args []string, cfg config.SecureConfig) int {
 	fs := flag.NewFlagSet("delete", flag.ExitOnError)
-	baseURL := fs.String("base-url", cfg.BaseURL, "SimpleLogin base URL")
+	baseURL := fs.String("base-url", cfg.BaseConfig.BaseURL, "SimpleLogin base URL")
 	apiKey := fs.String("api-key", cfg.APIKey, "API key (overrides stored key)")
 	hostname := fs.String("hostname", "", "Website hostname to attach to the alias creation request")
 	email := fs.String("email", "", "Email of the alias to delete (required)")
@@ -205,9 +205,9 @@ func runDeleteAlias(args []string, cfg config.Config) int {
 	_, _ = fmt.Println("Alias deleted:", *email)
 	return 0
 }
-func runCustom(args []string, cfg config.Config) int {
+func runCustom(args []string, cfg config.SecureConfig) int {
 	fs := flag.NewFlagSet("custom", flag.ExitOnError)
-	baseURL := fs.String("base-url", cfg.BaseURL, "SimpleLogin base URL")
+	baseURL := fs.String("base-url", cfg.BaseConfig.BaseURL, "SimpleLogin base URL")
 	apiKey := fs.String("api-key", cfg.APIKey, "API key (overrides stored key)")
 	hostname := fs.String("hostname", "", "Website hostname to attach to the alias creation request")
 	prefix := fs.String("prefix", "", "Alias prefix to use (required)")

@@ -2,13 +2,20 @@ package config
 
 import (
 	"encoding/json"
+	"github.com/zalando/go-keyring"
 	"os"
 	"path/filepath"
 )
 
+const service = "simplelogincli"
+const user = "api_key"
+
 type Config struct {
-	APIKey  string `json:"api_key"`
 	BaseURL string `json:"base_url"`
+}
+type SecureConfig struct {
+	BaseConfig Config `json:",inline"`
+	APIKey     string `json:"api_key"`
 }
 
 const DefaultBaseURL = "https://app.simplelogin.io"
@@ -28,33 +35,39 @@ func userConfigFile() (string, error) {
 }
 
 // Load reads config from file and applies environment overrides
-func Load() (Config, error) {
-	var cfg Config
-	cfg.BaseURL = getenvDefault("SIMPLELOGIN_BASE_URL", DefaultBaseURL)
-	if envKey := os.Getenv("SIMPLELOGIN_API_KEY"); envKey != "" {
-		cfg.APIKey = envKey
+func Load() (SecureConfig, error) {
+	var cfg SecureConfig
+	cfg.BaseConfig = Config{}
+	cfg.BaseConfig.BaseURL = getenvDefault("SIMPLELOGIN_BASE_URL", DefaultBaseURL)
+
+	// Try to get from keyring if not in env
+	if cfg.APIKey == "" {
+		if key, err := keyring.Get(service, user); err == nil {
+			cfg.APIKey = key
+		}
 	}
+
 	path, err := userConfigFile()
 	if err != nil {
 		return cfg, err
 	}
 	if b, err := os.ReadFile(path); err == nil {
-		_ = json.Unmarshal(b, &cfg)
+		_ = json.Unmarshal(b, &cfg.BaseConfig)
 	}
 	if envKey := os.Getenv("SIMPLELOGIN_API_KEY"); envKey != "" {
 		cfg.APIKey = envKey
 	}
 	if envBase := os.Getenv("SIMPLELOGIN_BASE_URL"); envBase != "" {
-		cfg.BaseURL = envBase
+		cfg.BaseConfig.BaseURL = envBase
 	}
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = DefaultBaseURL
+	if cfg.BaseConfig.BaseURL == "" {
+		cfg.BaseConfig.BaseURL = DefaultBaseURL
 	}
 	return cfg, nil
 }
 
 // Save writes config to file with 0600 permission
-func Save(cfg Config) error {
+func Save(cfg SecureConfig) error {
 	path, err := userConfigFile()
 	if err != nil {
 		return err
@@ -63,7 +76,7 @@ func Save(cfg Config) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(cfg, "", "  ")
+	data, err := json.MarshalIndent(cfg.BaseConfig, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -73,6 +86,13 @@ func Save(cfg Config) error {
 	}
 	defer func() { _ = f.Close() }()
 	_, err = f.Write(data)
+
+	if cfg.APIKey != "" {
+		if err := keyring.Set(service, user, cfg.APIKey); err != nil {
+			return err
+		}
+	}
+
 	return err
 }
 
