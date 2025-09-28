@@ -2,9 +2,10 @@ package config
 
 import (
 	"encoding/json"
-	"github.com/zalando/go-keyring"
 	"os"
 	"path/filepath"
+
+	"github.com/zalando/go-keyring"
 )
 
 const service = "simplelogincli"
