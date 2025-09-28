@@ -45,6 +45,8 @@ func main() {
 	case "help", "-h", "--help":
 		usage()
 		code = 0
+	case "delete", "-d", "--delete":
+		code = runDeleteAlias(args, cfg)
 	default:
 		_, _ = fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", cmd)
 		usage()
@@ -178,6 +180,31 @@ func runRandom(args []string, cfg config.Config) int {
 	return 0
 }
 
+func runDeleteAlias(args []string, cfg config.Config) int {
+	fs := flag.NewFlagSet("delete", flag.ExitOnError)
+	baseURL := fs.String("base-url", cfg.BaseURL, "SimpleLogin base URL")
+	apiKey := fs.String("api-key", cfg.APIKey, "API key (overrides stored key)")
+	hostname := fs.String("hostname", "", "Website hostname to attach to the alias creation request")
+	email := fs.String("email", "", "Email of the alias to delete (required)")
+	_ = fs.Parse(args)
+	if *apiKey == "" {
+		_, _ = fmt.Fprintln(os.Stderr, "Missing API key. Use set-key or --api-key or env.")
+		return 2
+	}
+	if *email == "" {
+		_, _ = fmt.Fprintln(os.Stderr, "--email is required")
+		return 2
+	}
+	c := api.NewClient(*baseURL, *apiKey)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := c.DeleteAliasByEmail(ctx, *hostname, *email); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	_, _ = fmt.Println("Alias deleted:", *email)
+	return 0
+}
 func runCustom(args []string, cfg config.Config) int {
 	fs := flag.NewFlagSet("custom", flag.ExitOnError)
 	baseURL := fs.String("base-url", cfg.BaseURL, "SimpleLogin base URL")

@@ -114,6 +114,9 @@ type Alias struct {
 	Pinned            bool    `json:"pinned"`
 }
 
+type AliasesResponse struct {
+	Aliases []Alias `json:"aliases"`
+}
 type SuffixOption struct {
 	SignedSuffix string `json:"signed_suffix"`
 	Suffix       string `json:"suffix"`
@@ -247,11 +250,53 @@ func (c *Client) DefaultMailboxID(ctx context.Context) (int, error) {
 }
 
 // DeleteAlias removes an alias by id (DELETE /api/aliases/:alias_id)
-func (c *Client) DeleteAlias(ctx context.Context, aliasID int) error {
+func (c *Client) DeleteAlias(ctx context.Context, aliasID int, hostname string) error {
 	path := "/api/aliases/" + strconv.Itoa(aliasID)
-	req, err := c.newReq(ctx, http.MethodDelete, path, nil, nil)
+	q := url.Values{}
+	if strings.TrimSpace(hostname) != "" {
+		q.Set("hostname", hostname)
+	}
+	req, err := c.newReq(ctx, http.MethodDelete, path, nil, q)
 	if err != nil {
 		return err
 	}
 	return c.doJSON(req, nil)
+}
+
+func (c *Client) ListAliases(ctx context.Context, page int, hostname string) (AliasesResponse, error) {
+	path := "/api/v2/aliases"
+	query := url.Values{}
+	query.Add("page_id", strconv.Itoa(page))
+	if strings.TrimSpace(hostname) != "" {
+		query.Set("hostname", hostname)
+	}
+	req, err := c.newReq(ctx, http.MethodGet, path, nil, query)
+	if err != nil {
+		return AliasesResponse{}, err
+	}
+	var out AliasesResponse
+	errJson := c.doJSON(req, &out)
+	return out, errJson
+}
+
+// DeleteAliasBy email removes an alias by email (DELETE /api/aliases/:alias_id)
+func (c *Client) DeleteAliasByEmail(ctx context.Context, hostname, email string) error {
+	for i := 0; ; i++ {
+		aliases, err := c.ListAliases(ctx, i, hostname)
+		if err != nil {
+			return err
+		}
+		if len(aliases.Aliases) == 0 {
+			break
+		}
+		//find alias using value provided by user
+		for _, alias := range aliases.Aliases {
+			if alias.Email == email {
+				return c.DeleteAlias(ctx, alias.ID, hostname)
+			}
+		}
+		//sleep to avoid rate limiting
+		time.Sleep(700 * time.Millisecond)
+	}
+	return nil
 }

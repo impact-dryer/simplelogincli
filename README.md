@@ -66,6 +66,12 @@ SIMPLELOGIN_API_KEY=... ./simplelogin whoami
 ```
 The command prints the newly created alias email to stdout on success.
 
+### Delete alias
+```zsh
+./simplelogin --delete --email "<email_to_delete>"
+```
+
+
 ### Create a custom alias (prefix + suffix)
 You can either provide the signed suffix directly (from `options`) or pick it by the plain suffix value.
 
