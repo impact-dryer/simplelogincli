@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/zalando/go-keyring"
 )
 
 func TestLoad_EnvOverrides(t *testing.T) {
