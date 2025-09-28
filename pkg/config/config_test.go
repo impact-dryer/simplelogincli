@@ -23,8 +23,8 @@ func TestLoad_EnvOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.BaseURL != "https://example.com" {
-		t.Fatalf("BaseURL = %q, want https://example.com", cfg.BaseURL)
+	if cfg.BaseConfig.BaseURL != "https://example.com" {
+		t.Fatalf("BaseURL = %q, want https://example.com", cfg.BaseConfig.BaseURL)
 	}
 	if cfg.APIKey != "env-key" {
 		t.Fatalf("APIKey = %q, want env-key", cfg.APIKey)
@@ -41,7 +41,7 @@ func TestSaveAndLoad_File(t *testing.T) {
 	os.Unsetenv("SIMPLELOGIN_BASE_URL")
 	os.Unsetenv("SIMPLELOGIN_API_KEY")
 
-	cfg := Config{APIKey: "file-key", BaseURL: "https://host"}
+	cfg := SecureConfig{APIKey: "file-key", BaseConfig: Config{BaseURL: "https://host"}}
 	if err := Save(cfg); err != nil {
 		t.Fatalf("Save() error = %v", err)
 	}
@@ -60,7 +60,7 @@ func TestSaveAndLoad_File(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if loaded.APIKey != "file-key" || loaded.BaseURL != "https://host" {
+	if loaded.APIKey != "file-key" || loaded.BaseConfig.BaseURL != "https://host" {
 		t.Fatalf("loaded = %#v, want api_key=file-key base_url=https://host", loaded)
 	}
 	// Ensure file under our tmp XDG config
