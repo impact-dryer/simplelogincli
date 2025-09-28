@@ -32,6 +32,7 @@ func TestLoad_EnvOverrides(t *testing.T) {
 }
 
 func TestSaveAndLoad_File(t *testing.T) {
+	keyring.MockInit()
 	dir := t.TempDir()
 	if runtime.GOOS != "windows" {
 		os.Setenv("XDG_CONFIG_HOME", dir)
