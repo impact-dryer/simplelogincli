@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -220,5 +221,126 @@ func TestRequestStructTags(t *testing.T) {
 	}
 	if !reflect.DeepEqual(v.MailboxIDs, []int{1}) {
 		t.Fatalf("ids mutated")
+	}
+}
+
+// Additional coverage tests
+func TestListAliases_WithHostnameAndPage(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v2/aliases" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("page_id") != "2" || r.URL.Query().Get("hostname") != "ex.com" {
+			t.Fatalf("query = %s", r.URL.RawQuery)
+		}
+		_ = json.NewEncoder(w).Encode(AliasesResponse{Aliases: []Alias{{ID: 10, Email: "a@b"}}})
+	}))
+	defer ts.Close()
+	c := NewClient(ts.URL, "k")
+	out, err := c.ListAliases(context.Background(), 2, "ex.com")
+	if err != nil {
+		t.Fatalf("ListAliases err=%v", err)
+	}
+	if len(out.Aliases) != 1 || out.Aliases[0].ID != 10 {
+		t.Fatalf("out = %#v", out)
+	}
+}
+
+func TestDeleteAlias_WithHostname(t *testing.T) {
+	deleted := false
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Fatalf("method = %s", r.Method)
+		}
+		if r.URL.Path != "/api/aliases/99" {
+			t.Fatalf("path = %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("hostname") != "ex.com" {
+			t.Fatalf("hostname query missing")
+		}
+		deleted = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+	c := NewClient(ts.URL, "k")
+	if err := c.DeleteAlias(context.Background(), 99, "ex.com"); err != nil {
+		t.Fatalf("DeleteAlias err=%v", err)
+	}
+	if !deleted {
+		t.Fatalf("delete not called")
+	}
+}
+
+func TestDeleteAliasByEmail_FoundFirstPage(t *testing.T) {
+	deleted := false
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v2/aliases":
+			_ = json.NewEncoder(w).Encode(AliasesResponse{Aliases: []Alias{{ID: 5, Email: "t@sl"}}})
+		case r.Method == http.MethodDelete && r.URL.Path == "/api/aliases/5":
+			deleted = true
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+	c := NewClient(ts.URL, "k")
+	if err := c.DeleteAliasByEmail(context.Background(), "", "t@sl"); err != nil {
+		t.Fatalf("DeleteAliasByEmail err=%v", err)
+	}
+	if !deleted {
+		t.Fatalf("delete not called")
+	}
+}
+
+func TestDeleteAliasByEmail_NotFoundImmediate(t *testing.T) {
+	calledDelete := false
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v2/aliases" {
+			_ = json.NewEncoder(w).Encode(AliasesResponse{Aliases: nil})
+			return
+		}
+		if r.Method == http.MethodDelete {
+			calledDelete = true
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+	c := NewClient(ts.URL, "k")
+	if err := c.DeleteAliasByEmail(context.Background(), "", "notfound@sl"); err != nil {
+		t.Fatalf("unexpected err=%v", err)
+	}
+	if calledDelete {
+		t.Fatalf("should not delete when not found")
+	}
+}
+
+func TestDefaultMailboxID_NoMailboxesError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(MailboxesResponse{Mailboxes: []Mailbox{}})
+	}))
+	defer ts.Close()
+	c := NewClient(ts.URL, "k")
+	_, err := c.DefaultMailboxID(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "no mailboxes") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func Test_newReq_QueryConcatenation(t *testing.T) {
+	c := NewClient("http://example", "k")
+	ctx := context.Background()
+	q := url.Values{"y": {"2"}}
+	req, err := c.newReq(ctx, http.MethodGet, "/p?x=1", nil, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := req.URL.String()
+	if !(strings.Contains(u, "x=1") && strings.Contains(u, "y=2")) {
+		t.Fatalf("url = %s", u)
+	}
+	if ct := req.Header.Get("Content-Type"); ct != "" {
+		t.Fatalf("content-type set unexpectedly: %q", ct)
 	}
 }
